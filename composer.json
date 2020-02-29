@@ -1,0 +1,30 @@
+{
+    "name": "yosieu/react-smtp",
+    "require": {
+        "react/socket": "^1.3"
+    },
+    "require-dev": {
+        "monolog/monolog": "^2",
+        "phpmailer/phpmailer": "~6.1",
+        "react/event-loop": "^1"
+    },
+    "description" : "SMTP Server based on ReactPHP",
+    "license" : "MIT",
+    "authors": [
+        {
+            "name": "Josef Šíma",
+            "email": "sima@yosi.eu"
+        },
+        {
+            "name": "Christian Mayer",
+            "email": "christian@fox21.at",
+            "homepage": "https://fox21.at"
+        }
+    ],
+    "autoload": {
+        "psr-4" : {
+            "Yosieu\\React\\Smtp\\" : ["src"]
+
+        }
+    }
+}
