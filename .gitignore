@@ -3,5 +3,7 @@ log
 /vendor
 .idea
 /.idea
-./run.php
-./sentMail.php
+temp/run.php
+temp/sentMail.php
+temp
+./temp
