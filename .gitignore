@@ -6,4 +6,6 @@ log
 run.php
 sentMail.php
 temp
+/temp
 ./temp
+/mails/

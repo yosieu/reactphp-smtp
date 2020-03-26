@@ -17,7 +17,7 @@ class SMTPRequest extends EventEmitter
     protected string $from;
 
     /**
-     * @var array
+     * @var array [email=>name]
      */
     protected array $recipients = [];
 
