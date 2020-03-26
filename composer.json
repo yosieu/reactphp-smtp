@@ -1,5 +1,6 @@
 {
     "name": "yosieu/react-smtp",
+    "minimum-stability": "dev",
     "require": {
         "react/socket": "^1.3"
     },
