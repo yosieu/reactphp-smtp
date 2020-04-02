@@ -5,8 +5,6 @@ namespace Yosieu\React\Smtp;
 
 
 use Evenement\EventEmitter;
-use Monolog\Handler\ErrorLogHandler;
-use Monolog\Logger;
 use React\EventLoop\LoopInterface;
 use Yosieu\React\Smtp\Io\MiddlewareRunner;
 use React\Socket\ServerInterface;
@@ -57,12 +55,6 @@ final class Server extends EventEmitter
         $that = $this;
         $connector->on('request', function(SMTPRequest $request, SMTPConnector $connector) use ($that) {
             $that->handleRequest($request, $connector);
-        });
-
-        $connector->on('debug', function($chunk){
-            $logger = new Logger('l');
-            $logger->pushHandler(new ErrorLogHandler());
-            $logger->debug($chunk);
         });
 
         $socket->on('connection', [$connector, 'handle']);
