@@ -14,6 +14,6 @@ interface iSMTPMiddleWare
      * @param callable|null $next
      * @return mixed|null
      */
-    public function __invoke(SMTPRequest $request, callable $next = null) : ?mixed;
+    public function __invoke(SMTPRequest $request, callable $next = null);
 
 }

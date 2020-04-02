@@ -1,6 +1,6 @@
 <?php
 
-namespace Yosieu\React\Smtp\Middleware;
+namespace Yosieu\React\Smtp\MiddleWare;
 
 use Yosieu\React\Smtp\SMTPRequest;
 
@@ -12,7 +12,7 @@ class SMTPStdOutMiddleWare implements iSMTPMiddleWare
      * @param callable|null $next
      * @return mixed|null
      */
-    public function __invoke(SMTPRequest $request, callable $next = null) : ?mixed
+    public function __invoke(SMTPRequest $request, callable $next = null)
     {
 
         $stdout = fopen('php://stdout', 'w');
