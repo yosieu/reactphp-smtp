@@ -15,11 +15,9 @@ class SMTPStdOutMiddleWare implements iSMTPMiddleWare
     public function __invoke(SMTPRequest $request, callable $next = null)
     {
 
-        /*
         $stdout = fopen('php://stdout', 'w');
         fwrite($stdout, print_r($request, true));
         fclose($stdout);
-        */
 
         if($next !== null) {
              return $next($request);
