@@ -4,6 +4,7 @@
 namespace Yosieu\React\Smtp\Io;
 
 use Evenement\EventEmitter;
+use Monolog\Logger;
 use React\EventLoop\LoopInterface;
 use React\Socket\ConnectionInterface;
 use Yosieu\React\Smtp\Authenticator;
@@ -59,6 +60,11 @@ class SMTPConnector extends EventEmitter
     protected SMTPSocketServer $socketServer;
 
     /**
+     * @var Logger
+     */
+    protected Logger $logger;
+
+    /**
      * RequestParser constructor.
      * @param LoopInterface $loop
      */
@@ -88,41 +94,36 @@ class SMTPConnector extends EventEmitter
     }
 
 
-    /**
-     * @param $data
-     */
     protected function handleData($data) : void {
 
-        // finding end line position in received data
-        $separatorPos = strpos($data, self::DELIMITER);
+        $this->dataBuffer .= $data;
+
+        $separatorPos = strpos($this->dataBuffer, self::DELIMITER);
         $separatorLen = strlen(self::DELIMITER);
 
-        // end of line not found and we have some data in buffer
-        // than we try find end of line in buffered data
-        if(($separatorPos === false) && !empty($this->dataBuffer)) {
-            $tmp = substr($this->dataBuffer, -$separatorLen) . substr($data, 0, $separatorLen);
-            $separatorPos = strpos($tmp, self::DELIMITER) - $separatorLen;
-        }
 
-        // No end of line found on data or buffer. We simply adding a recieved data into buffer
-        if($separatorPos === false) {
-            $this->dataBuffer .= $data;
-        }else {
-
-            // Nice. We have found end of line.
-            // Now we put string form start to end of merged data into $line variable
+        if(!$this->getStatus('hasData')) {
             $line = substr(
-                $this->dataBuffer . $data, 0, strlen($this->dataBuffer) + $separatorPos
+                $this->dataBuffer, 0, $separatorPos + $separatorLen
             );
 
-            //and rest of merged data put into buffer.
-            $this->dataBuffer = substr($data, $separatorPos + $separatorLen);
+            $this->dataBuffer = substr($this->dataBuffer, $separatorPos + $separatorLen);
 
-            // lets go to handle $line. Is posible to get SMTP command or part of message content
-            $this->handleLine($line);
+            if(strlen(trim($line)) != 0) {
+                $this->handleLine($line);
+            }
+        } else {
+            if(preg_match('/--.*--\s*\.\s$/', $this->dataBuffer)) { // is end of data
+                $this->request->appendMessage(substr($this->dataBuffer, 0, strlen($this->dataBuffer) - 1));
+                $this->dataBuffer = '';
+                $this->setStatus('hasData', false);
+                $this->handleLine('NOOP');
+            }
         }
 
+
     }
+
 
     /**
      * @param string $name
@@ -170,10 +171,13 @@ class SMTPConnector extends EventEmitter
         $commandCmp = strtolower($command);
 
         if ($commandCmp == 'helo') {
+
             $this->setStatus('hasHello', true);
 
             return $this->sendOk($this->getHostname());
+
         } elseif ($commandCmp == 'ehlo') {
+
             $this->setStatus('hasHello', true);
             $response = '250-' . $this->getHostname() . self::DELIMITER;
             $count = count($this->extendedCommands) - 1;
@@ -185,6 +189,7 @@ class SMTPConnector extends EventEmitter
             $response .= '250 ' . end($this->extendedCommands);
 
             return $this->dataSend($response);
+
         } elseif ($commandCmp == 'mail') {
             if ($this->getStatus('hasHello')) {
                 if (isset($args[0]) && $args[0]) {
@@ -227,11 +232,16 @@ class SMTPConnector extends EventEmitter
             }
 
             return $this->sendSyntaxErrorCommandUnrecognized();
+
         } elseif ($commandCmp == 'noop') {
+
             return $this->sendOk();
+
         } elseif ($commandCmp == 'quit') {
+
             $response = $this->sendQuit();
-            //$this->shutdown();
+            $that = $this;
+            $this->emit('request', [$this->request, $that]);
 
             return $response;
 
@@ -292,52 +302,11 @@ class SMTPConnector extends EventEmitter
         */
         } elseif ($commandCmp == 'help') {
             return $this->sendOk('HELO, EHLO, MAIL FROM, RCPT TO, DATA, NOOP, QUIT');
+        } elseif ($commandCmp == '.') {
+            return $this->sendOk();
         } else {
-            if ($this->getStatus('hasAuth')) {
-                if ($this->getStatus('hasAuthPlain')) {
-                    $this->setStatus('hasAuthPlainUser', true);
-                    $this->setCredentials([$command]);
-
-                    if ($this->authenticate('plain')) {
-                        return $this->sendAuthSuccessResponse();
-                    }
-
-                    return $this->sendAuthInvalid();
-                } elseif ($this->getStatus('hasAuthLogin')) {
-                    $credentials = $this->getCredentials();
-
-                    if ($this->getStatus('hasAuthLoginUser')) {
-                        $credentials['password'] = $command;
-                        $this->setCredentials($credentials);
-
-                        if ($this->authenticate('login')) {
-                            return $this->sendAuthSuccessResponse();
-                        }
-
-                        return $this->sendAuthInvalid();
-                    }
-
-                    $this->setStatus('hasAuthLoginUser', true);
-                    $credentials['user'] = $command;
-                    $this->setCredentials($credentials);
-
-                    return $this->sendAskForPasswordResponse();
-                }
-
-                // @todo
-                // $this->sendSyntaxErrorCommandUnrecognized();
-                $this->sendCommandNotImplemented();
-                throw new \RuntimeException('Unhandled situation.');
-            } elseif ($this->getStatus('hasData')) {
-                if ($line == '.') {
-
-                    $that = $this;
-                    $this->emit('request', [$this->request, $that]);
-
-                    return $this->sendOk();
-                } else {
-                    $this->request->appendMessage($line);
-                }
+            if ($this->getStatus('hasData')) {
+                $this->request->appendMessage($line);
             } else {
                 $tmp = [$this->id, $command, join('/ /', $args)];
                 $this->emit('debug', [vsprintf('client %d not implemented: /%s/ - /%s/', $tmp), $this]);
@@ -406,7 +375,7 @@ class SMTPConnector extends EventEmitter
      */
     private function sendSyntaxErrorInParameters(): string
     {
-        return $this->dataSend('501 Syntax error in parameters or arguments');
+        return  $this->dataSend('501 Syntax error in parameters or arguments');
     }
 
     /**

@@ -57,6 +57,12 @@ final class Server extends EventEmitter
             $that->handleRequest($request, $connector);
         });
 
+        $connector->on('debug', function($chunk){
+            $stdout = fopen('php://stdout', 'w');
+            fwrite($stdout, '[ RAW DATA ]' . $chunk);
+            fclose($stdout);
+        });
+
         $socket->on('connection', [$connector, 'handle']);
 
     }
